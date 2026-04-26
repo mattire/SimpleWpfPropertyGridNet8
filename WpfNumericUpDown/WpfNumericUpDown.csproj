@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <UseWPF>true</UseWPF>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
+  </PropertyGroup>
+
+  <!--
+    Source files are linked from the standalone WpfNumericUpDown library.
+    No files are copied here — edits to the library propagate automatically.
+    Original source: C:\Users\alr2d\claude\SimpleWpfPropertyGrid\WpfNumericUpDown\
+  -->
+  <ItemGroup>
+    <Compile Include="..\..\..\SimpleWpfPropertyGrid\WpfNumericUpDown\*.cs" LinkBase="" />
+    <Page Include="..\..\..\SimpleWpfPropertyGrid\WpfNumericUpDown\*.xaml" LinkBase="" />
+  </ItemGroup>
+
+</Project>
