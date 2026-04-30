@@ -7,11 +7,11 @@
     <ImplicitUsings>enable</ImplicitUsings>
 
     <!-- NuGet package metadata -->
-    <PackageId>WpfNumericUpDown</PackageId>
+    <PackageId>WpfCollectionEditor</PackageId>
     <Version>1.0.3</Version>
     <Authors>mattire</Authors>
-    <Description>Standalone WPF NumericUpDown UserControl. Exposes Value, Step, DecimalPlaces, Minimum, and Maximum dependency properties and a ValueChanged routed event. Supports keyboard Up/Down arrows, hold-to-repeat spin buttons, and prevents floating-point drift when using fractional step values.</Description>
-    <PackageTags>wpf;numericupdown;spinner;controls</PackageTags>
+    <Description>WPF Window that provides a collection editor for List&lt;T&gt; properties. Renders a scrollable ListBox with type-aware Add controls (TextBox for string, NumericUpDown for numerics, DatePicker for DateTime, PropertyGrid for object types) and a Remove Selected button. Object-type items are shown as clickable Open buttons. Integrates with SimpleWpfPropertyGrid via IObjectEditorFactory to avoid a circular dependency.</Description>
+    <PackageTags>wpf;collection;editor;list;controls</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
 
     <!-- Source Link -->
@@ -20,6 +20,10 @@
     <DebugType>embedded</DebugType>
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
   </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\WpfNumericUpDown\WpfNumericUpDown.csproj" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All" />

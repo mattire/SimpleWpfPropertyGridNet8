@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using SimpleWpfPropertyGrid;
 
 namespace SimpleWpfPropertyGrid.Demo.Models;
@@ -28,4 +29,10 @@ public class Person
 
     [PropertyGridLabel("Contact Details")]
     public ContactInfo Contact { get; set; } = new();
+
+    [PropertyGridLabel("Skills")]
+    public List<string> Skills { get; set; } = new();
+
+    [PropertyGridLabel("Previous Addresses")]
+    public List<Address> PreviousAddresses { get; set; } = new();
 }
