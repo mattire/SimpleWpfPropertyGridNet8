@@ -1,10 +1,12 @@
 using System;
+using System.Collections;
 using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using WpfCollectionEditor;
 using WpfNumericUpDown;
 
 namespace SimpleWpfPropertyGrid;
@@ -129,6 +131,9 @@ public partial class PropertyGrid : UserControl
 
         if (IsNumericType(type))
             return CreateNumericEditor(prop, value);
+
+        if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(List<>))
+            return CreateCollectionButton(prop, value);
 
         // Any reference type (class) gets an "Open" button for recursive editing
         if (!type.IsValueType)
@@ -268,6 +273,40 @@ public partial class PropertyGrid : UserControl
 
     private static int DefaultDecimalPlaces(Type type) =>
         type == typeof(double) || type == typeof(float) || type == typeof(decimal) ? 2 : 0;
+
+    private UIElement CreateCollectionButton(PropertyInfo prop, object? value)
+    {
+        var elementType = prop.PropertyType.GetGenericArguments()[0];
+        var panel = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+
+        panel.Children.Add(new TextBlock
+        {
+            Text = $"(List<{elementType.Name}>)",
+            VerticalAlignment = VerticalAlignment.Center,
+            Foreground = new SolidColorBrush(Color.FromRgb(108, 117, 125)),
+            Margin = new Thickness(0, 0, 8, 0),
+            FontStyle = FontStyles.Italic,
+            FontSize = 11
+        });
+
+        var btn = new Button { Content = "Open", Padding = new Thickness(14, 3, 14, 3), MinWidth = 64 };
+        btn.Click += (_, _) =>
+        {
+            var list = prop.GetValue(TargetObject) as IList;
+            if (list == null)
+            {
+                list = (IList)Activator.CreateInstance(prop.PropertyType)!;
+                prop.SetValue(TargetObject, list);
+            }
+            var factory = new PropertyGridObjectEditorFactory(Window.GetWindow(this));
+            new CollectionEditorWindow(list, elementType, GetPropertyLabel(prop), factory)
+            {
+                Owner = Window.GetWindow(this)
+            }.ShowDialog();
+        };
+        panel.Children.Add(btn);
+        return panel;
+    }
 
     private UIElement CreateObjectButton(PropertyInfo prop, object? value)
     {
