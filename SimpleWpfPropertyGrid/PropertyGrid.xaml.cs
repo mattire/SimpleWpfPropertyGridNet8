@@ -117,20 +117,24 @@ public partial class PropertyGrid : UserControl
         var type = prop.PropertyType;
         var value = prop.GetValue(TargetObject);
 
-        if (type == typeof(string))
+        var underlyingType = Nullable.GetUnderlyingType(type);
+        var isNullable = underlyingType != null;
+        var effectiveType = underlyingType ?? type;
+
+        if (effectiveType == typeof(string))
             return CreateStringEditor(prop, (string?)value);
 
-        if (type == typeof(bool))
-            return CreateBoolEditor(prop, value is bool b && b);
+        if (effectiveType == typeof(bool))
+            return CreateBoolEditor(prop, (bool?)value, isNullable);
 
-        if (type == typeof(DateTime))
-            return CreateDateTimeEditor(prop, value as DateTime?);
+        if (effectiveType == typeof(DateTime))
+            return CreateDateTimeEditor(prop, (DateTime?)value, isNullable);
 
-        if (type.IsEnum)
-            return CreateEnumEditor(prop, value);
+        if (effectiveType.IsEnum)
+            return CreateEnumEditor(prop, value, effectiveType, isNullable);
 
-        if (IsNumericType(type))
-            return CreateNumericEditor(prop, value);
+        if (IsNumericType(effectiveType))
+            return CreateNumericEditor(prop, value, effectiveType, isNullable);
 
         if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(List<>))
             return CreateCollectionButton(prop, value);
@@ -158,14 +162,14 @@ public partial class PropertyGrid : UserControl
         return tb;
     }
 
-    private static UIElement CreateBoolEditor(PropertyInfo prop, bool value)
+    private static UIElement CreateBoolEditor(PropertyInfo prop, bool? value, bool isNullable)
     {
         var cb = new CheckBox
         {
             IsChecked = value,
+            IsThreeState = isNullable,
             VerticalAlignment = VerticalAlignment.Center
         };
-        // Capture prop in closure; TargetObject captured via the outer instance field reference
         cb.Checked += (s, _) =>
         {
             var pg = FindPropertyGrid((CheckBox)s!);
@@ -178,10 +182,16 @@ public partial class PropertyGrid : UserControl
             try { prop.SetValue(pg?.TargetObject, false); }
             catch { /* ignore */ }
         };
+        cb.Indeterminate += (s, _) =>
+        {
+            var pg = FindPropertyGrid((CheckBox)s!);
+            try { prop.SetValue(pg?.TargetObject, (bool?)null); }
+            catch { /* ignore */ }
+        };
         return cb;
     }
 
-    private static UIElement CreateDateTimeEditor(PropertyInfo prop, DateTime? value)
+    private static UIElement CreateDateTimeEditor(PropertyInfo prop, DateTime? value, bool isNullable)
     {
         var dp = new DatePicker
         {
@@ -195,17 +205,22 @@ public partial class PropertyGrid : UserControl
             {
                 if (dp.SelectedDate.HasValue)
                     prop.SetValue(pg?.TargetObject, dp.SelectedDate.Value);
+                else if (isNullable)
+                    prop.SetValue(pg?.TargetObject, null);
             }
             catch { /* ignore */ }
         };
         return dp;
     }
 
-    private static UIElement CreateEnumEditor(PropertyInfo prop, object? value)
+    private static UIElement CreateEnumEditor(PropertyInfo prop, object? value, Type enumType, bool isNullable)
     {
+        var items = Enum.GetValues(enumType).Cast<object?>().ToList();
+        if (isNullable) items.Insert(0, null);
+
         var cb = new ComboBox
         {
-            ItemsSource = Enum.GetValues(prop.PropertyType),
+            ItemsSource = items,
             SelectedItem = value,
             VerticalAlignment = VerticalAlignment.Center
         };
@@ -218,14 +233,14 @@ public partial class PropertyGrid : UserControl
         return cb;
     }
 
-    private static UIElement CreateNumericEditor(PropertyInfo prop, object? value)
+    private static UIElement CreateNumericEditor(PropertyInfo prop, object? value, Type effectiveType, bool isNullable)
     {
         if (prop.GetCustomAttribute<PropertyGridNumericUpDownAttribute>() != null)
-            return CreateNumericUpDownEditor(prop, value);
+            return CreateNumericUpDownEditor(prop, value, effectiveType);
 
         var tb = new TextBox
         {
-            Text = value?.ToString() ?? "0",
+            Text = value?.ToString() ?? (isNullable ? string.Empty : "0"),
             VerticalAlignment = VerticalAlignment.Center,
             Padding = new Thickness(4, 3, 4, 3)
         };
@@ -234,22 +249,37 @@ public partial class PropertyGrid : UserControl
             var pg = FindPropertyGrid((TextBox)s!);
             try
             {
-                var converted = Convert.ChangeType(tb.Text, prop.PropertyType);
-                prop.SetValue(pg?.TargetObject, converted);
+                if (string.IsNullOrWhiteSpace(tb.Text))
+                {
+                    if (isNullable)
+                    {
+                        prop.SetValue(pg?.TargetObject, null);
+                    }
+                    else
+                    {
+                        prop.SetValue(pg?.TargetObject, Convert.ChangeType(0, effectiveType));
+                        tb.Text = "0";
+                    }
+                }
+                else
+                {
+                    var converted = Convert.ChangeType(tb.Text, effectiveType);
+                    prop.SetValue(pg?.TargetObject, converted);
+                }
             }
             catch
             {
-                tb.Text = prop.GetValue(pg?.TargetObject)?.ToString() ?? "0";
+                tb.Text = prop.GetValue(pg?.TargetObject)?.ToString() ?? (isNullable ? string.Empty : "0");
             }
         };
         return tb;
     }
 
-    private static UIElement CreateNumericUpDownEditor(PropertyInfo prop, object? value)
+    private static UIElement CreateNumericUpDownEditor(PropertyInfo prop, object? value, Type effectiveType)
     {
         var step = prop.GetCustomAttribute<PropertyGridStepAttribute>()?.Step ?? 1.0;
         var decimals = prop.GetCustomAttribute<PropertyGridDecimalsAttribute>()?.Decimals
-                       ?? DefaultDecimalPlaces(prop.PropertyType);
+                       ?? DefaultDecimalPlaces(effectiveType);
 
         var nud = new NumericUpDown
         {
@@ -263,7 +293,7 @@ public partial class PropertyGrid : UserControl
             var pg = FindPropertyGrid((NumericUpDown)s!);
             try
             {
-                var converted = Convert.ChangeType(e.NewValue, prop.PropertyType);
+                var converted = Convert.ChangeType(e.NewValue, effectiveType);
                 prop.SetValue(pg?.TargetObject, converted);
             }
             catch { /* ignore out-of-range conversions */ }
